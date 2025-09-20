@@ -1,14 +1,33 @@
+# main_app.py
+
+# =========================
 # Library imports
+# =========================
 import numpy as np
 import streamlit as st
 import cv2
 from keras.models import load_model
 import tensorflow as tf
+import os
+import gdown
 
-# Loading the Model
-model = load_model('plant_disease_model.h5')
+# =========================
+# Google Drive Model Settings
+# =========================
+MODEL_PATH = "/content/drive/MyDrive/Minor_plant/trained_model.h5"
+DRIVE_URL = "https://drive.google.com/file/d/17zfDfEB8x3RS4HviGCwAfy13fDfTJRv6/view?usp=drive_link"  # your direct download link
 
-# Name of Classes (updated full list)
+# Download model from Google Drive if not available locally
+if not os.path.exists(MODEL_PATH):
+    with st.spinner("Downloading trained model from Google Drive... ⏳"):
+        gdown.download(DRIVE_URL, MODEL_PATH, quiet=False)
+
+# Load the model
+model = load_model(MODEL_PATH)
+
+# =========================
+# Class Names
+# =========================
 CLASS_NAMES = [
     "Apple___Apple_scab",
     "Apple___Black_rot",
@@ -37,35 +56,40 @@ CLASS_NAMES = [
     "Grape___healthy"
 ]
 
-# Setting Title of App
+# =========================
+# Streamlit UI
+# =========================
 st.title("🌱 Plant Disease Detection")
-st.markdown("Upload an image of the plant leaf")
+st.markdown("Upload an image of a plant leaf to predict the disease")
 
-# Uploading the plant image
+# Upload image
 plant_image = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
-submit = st.button('Predict Disease')
+submit = st.button("Predict Disease")
 
-# On predict button click
+# =========================
+# Prediction Logic
+# =========================
 if submit:
     if plant_image is not None:
-        # Convert the file to an opencv image
+        # Convert to OpenCV format
         file_bytes = np.asarray(bytearray(plant_image.read()), dtype=np.uint8)
         opencv_image = cv2.imdecode(file_bytes, 1)
-        
-        # Displaying the image
-        st.image(opencv_image, channels="BGR")
+
+        # Show uploaded image
+        st.image(opencv_image, channels="BGR", caption="Uploaded Leaf")
         st.write(f"Image Shape: {opencv_image.shape}")
-        
-        # Resizing the image
+
+        # Resize image for model
         opencv_image = cv2.resize(opencv_image, (256, 256))
-        
-        # Convert image to 4 Dimension
+
+        # Expand dims for batch
         opencv_image = np.expand_dims(opencv_image, axis=0)
-        
-        # Make Prediction
+
+        # Make prediction
         Y_pred = model.predict(opencv_image)
         result = CLASS_NAMES[np.argmax(Y_pred)]
         confidence = np.max(Y_pred) * 100
 
+        # Show results
         st.success(f"Prediction: {result}")
         st.info(f"Confidence: {confidence:.2f}%")
